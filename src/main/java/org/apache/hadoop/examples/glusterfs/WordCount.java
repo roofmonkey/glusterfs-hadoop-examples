@@ -15,10 +15,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.hadoop.examples;
+package org.apache.hadoop.examples.glusterfs;
 
 import java.io.IOException;
 import java.util.StringTokenizer;
+import java.util.Vector;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
@@ -65,13 +66,57 @@ public class WordCount {
     }
   }
 
+  private static String[] parseInputPaths(String[] args){
+      Vector<String> paths = new Vector<String>();
+      boolean found = false;
+      for(int i=0;i<args.length;i++){
+          if("-i".equalsIgnoreCase(args[i])){
+              found = true;
+              continue;
+          }else if(args[i].startsWith("-") ){
+              found = false;
+          }
+          
+          if(found){
+              paths.add(args[i]);
+          }
+          
+      }
+      
+      return paths.toArray(new String[paths.size()]);
+      
+  }
+  
+  private static String parseOutputPath(String[] args){
+      boolean found = false;
+      for(int i=0;i<args.length;i++){
+          if("-o".equalsIgnoreCase(args[i])){
+              found = true;
+              continue;
+          }else if(args[i].startsWith("-") ){
+              found = false;
+          }
+          
+          if(found){
+              return args[i];
+          }
+          
+      }
+      return null;
+  }
+  
   public static void main(String[] args) throws Exception {
     Configuration conf = new Configuration();
     String[] otherArgs = new GenericOptionsParser(conf, args).getRemainingArgs();
-    if (otherArgs.length != 2) {
-      System.err.println("Usage: wordcount <in> <out>");
+    String inputPaths[] = WordCount.parseInputPaths(otherArgs);
+    String outputPath = WordCount.parseOutputPath(otherArgs);
+    
+    if (inputPaths.length==0 || outputPath==null || "".equals(outputPath)) {
+      System.err.println("Usage: wordcount -i <inputPaths> -o <outputPath>");
+      System.err.println("Example: wordcount -i glusterfs://gv0/input1 glusterfs://gv1/input2 input3/ -o out/");
       System.exit(2);
     }
+    
     Job job = new Job(conf, "word count");
     job.setJarByClass(WordCount.class);
     job.setMapperClass(TokenizerMapper.class);
@@ -79,8 +124,14 @@ public class WordCount {
     job.setReducerClass(IntSumReducer.class);
     job.setOutputKeyClass(Text.class);
     job.setOutputValueClass(IntWritable.class);
-    FileInputFormat.addInputPath(job, new Path(otherArgs[0]));
-    FileOutputFormat.setOutputPath(job, new Path(otherArgs[1]));
+    
+   
+    for(int i=0;i<inputPaths.length;i++){
+        FileInputFormat.addInputPath(job, new Path(inputPaths[i]));    
+    }
+    
+    
+    FileOutputFormat.setOutputPath(job, new Path(outputPath));
     System.exit(job.waitForCompletion(true) ? 0 : 1);
   }
 }

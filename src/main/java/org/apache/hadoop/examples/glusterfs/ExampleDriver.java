@@ -16,10 +16,11 @@
  * limitations under the License.
  */
 
-package org.apache.hadoop.examples;
+package org.apache.hadoop.examples.glusterfs;
 
 import org.apache.hadoop.examples.dancing.DistributedPentomino;
 import org.apache.hadoop.examples.dancing.Sudoku;
+import org.apache.hadoop.examples.glusterfs.WordCount;
 import org.apache.hadoop.examples.pi.DistBbp;
 import org.apache.hadoop.examples.terasort.TeraGen;
 import org.apache.hadoop.examples.terasort.TeraSort;
@@ -37,7 +38,8 @@ public class ExampleDriver {
     ProgramDriver pgd = new ProgramDriver();
     try {
       pgd.addClass("wordcount", WordCount.class, 
-                   "A map/reduce program that counts the words in the input files.");
+                   "A map/reduce program that counts the words in the input files. multiple input paths supported...");
+      /*
       pgd.addClass("wordmean", WordMean.class,
                    "A map/reduce program that counts the average length of the words in the input files.");
       pgd.addClass("wordmedian", WordMedian.class,
@@ -71,6 +73,7 @@ public class ExampleDriver {
       pgd.addClass("teragen", TeraGen.class, "Generate data for the terasort");
       pgd.addClass("terasort", TeraSort.class, "Run the terasort");
       pgd.addClass("teravalidate", TeraValidate.class, "Checking results of terasort");
+      */
       exitCode = pgd.run(argv);
     }
     catch(Throwable e){
