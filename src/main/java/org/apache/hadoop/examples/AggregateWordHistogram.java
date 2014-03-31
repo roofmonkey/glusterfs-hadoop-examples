@@ -23,15 +23,16 @@ import java.util.ArrayList;
 import java.util.Map.Entry;
 
 import org.apache.hadoop.io.Text;
-import org.apache.hadoop.mapreduce.Job;
-import org.apache.hadoop.mapreduce.lib.aggregate.ValueAggregatorBaseDescriptor;
-import org.apache.hadoop.mapreduce.lib.aggregate.ValueAggregatorJob;
+import org.apache.hadoop.mapred.JobClient;
+import org.apache.hadoop.mapred.JobConf;
+import org.apache.hadoop.mapred.lib.aggregate.ValueAggregatorBaseDescriptor;
+import org.apache.hadoop.mapred.lib.aggregate.ValueAggregatorJob;
 
 /**
  * This is an example Aggregated Hadoop Map/Reduce application. Computes the
  * histogram of the words in the input texts.
  * 
- * To run: bin/hadoop jar hadoop-*-examples.jar aggregatewordhist <i>in-dir</i>
+ * To run: bin/hadoop jar hadoop-examples-*.jar aggregatewordhist <i>in-dir</i>
  * <i>out-dir</i> <i>numOfReducers</i> textinputformat
  * 
  */
@@ -48,8 +49,7 @@ public class AggregateWordHistogram {
      * @return a list of the generated pairs.
      */
     @Override
-    public ArrayList<Entry<Text, Text>> generateKeyValPairs(Object key,
-                                          Object val) {
+    public ArrayList<Entry<Text, Text>> generateKeyValPairs(Object key, Object val) {
       String words[] = val.toString().split(" |\t");
       ArrayList<Entry<Text, Text>> retv = new ArrayList<Entry<Text, Text>>();
       for (int i = 0; i < words.length; i++) {
@@ -71,12 +71,12 @@ public class AggregateWordHistogram {
    *           When there is communication problems with the job tracker.
    */
   @SuppressWarnings("unchecked")
-  public static void main(String[] args) 
-    throws IOException, InterruptedException, ClassNotFoundException  {
-    Job job = ValueAggregatorJob.createValueAggregatorJob(args
-        , new Class[] {AggregateWordHistogramPlugin.class});
-    job.setJarByClass(AggregateWordCount.class);
-    int ret = job.waitForCompletion(true) ? 0 : 1;
-    System.exit(ret);
+  public static void main(String[] args) throws IOException {
+    JobConf conf = ValueAggregatorJob.createValueAggregatorJob(args,
+        new Class[] { AggregateWordHistogramPlugin.class },
+        AggregateWordHistogram.class);
+    
+    JobClient.runJob(conf);
   }
+  
 }

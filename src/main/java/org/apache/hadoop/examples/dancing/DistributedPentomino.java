@@ -28,12 +28,9 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.WritableComparable;
-import org.apache.hadoop.mapreduce.*;
-import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
-import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+import org.apache.hadoop.mapred.*;
+import org.apache.hadoop.mapred.lib.IdentityReducer;
 import org.apache.hadoop.util.*;
-
-import com.google.common.base.Charsets;
 
 /**
  * Launch a distributed pentomino solver.
@@ -46,25 +43,21 @@ import com.google.common.base.Charsets;
  */
 public class DistributedPentomino extends Configured implements Tool {
 
-  private static final int PENT_DEPTH = 5;
-  private static final int PENT_WIDTH = 9;
-  private static final int PENT_HEIGHT = 10;
-  private static final int DEFAULT_MAPS = 2000;
-  
   /**
    * Each map takes a line, which represents a prefix move and finds all of 
    * the solutions that start with that prefix. The output is the prefix as
    * the key and the solution as the value.
    */
-  public static class PentMap extends 
-      Mapper<WritableComparable<?>, Text, Text, Text> {
+  public static class PentMap extends MapReduceBase
+    implements Mapper<WritableComparable, Text, Text, Text> {
     
     private int width;
     private int height;
     private int depth;
     private Pentomino pent;
     private Text prefixString;
-    private Context context;
+    private OutputCollector<Text, Text> output;
+    private Reporter reporter;
     
     /**
      * For each solution, generate the prefix and a string representation
@@ -79,12 +72,10 @@ public class DistributedPentomino extends Configured implements Tool {
       public void solution(List<List<Pentomino.ColumnName>> answer) {
         String board = Pentomino.stringifySolution(width, height, answer);
         try {
-          context.write(prefixString, new Text("\n" + board));
-          context.getCounter(pent.getCategory(answer)).increment(1);
+          output.collect(prefixString, new Text("\n" + board));
+          reporter.incrCounter(pent.getCategory(answer), 1);
         } catch (IOException e) {
           System.err.println(StringUtils.stringifyException(e));
-        } catch (InterruptedException ie) {
-          System.err.println(StringUtils.stringifyException(ie));
         }
       }
     }
@@ -94,8 +85,11 @@ public class DistributedPentomino extends Configured implements Tool {
      * will be selected for each column in order). Find all solutions with
      * that prefix.
      */
-    public void map(WritableComparable<?> key, Text value,Context context) 
-        throws IOException {
+    public void map(WritableComparable key, Text value,
+                    OutputCollector<Text, Text> output, Reporter reporter
+                    ) throws IOException {
+      this.output = output;
+      this.reporter = reporter;
       prefixString = value;
       StringTokenizer itr = new StringTokenizer(prefixString.toString(), ",");
       int[] prefix = new int[depth];
@@ -108,14 +102,12 @@ public class DistributedPentomino extends Configured implements Tool {
     }
     
     @Override
-    public void setup(Context context) {
-      this.context = context;
-      Configuration conf = context.getConfiguration();
-      depth = conf.getInt(Pentomino.DEPTH, PENT_DEPTH);
-      width = conf.getInt(Pentomino.WIDTH, PENT_WIDTH);
-      height = conf.getInt(Pentomino.HEIGHT, PENT_HEIGHT);
+    public void configure(JobConf conf) {
+      depth = conf.getInt("pent.depth", -1);
+      width = conf.getInt("pent.width", -1);
+      height = conf.getInt("pent.height", -1);
       pent = (Pentomino) 
-        ReflectionUtils.newInstance(conf.getClass(Pentomino.CLASS, 
+        ReflectionUtils.newInstance(conf.getClass("pent.class", 
                                                   OneSidedPentomino.class), 
                                     conf);
       pent.initialize(width, height);
@@ -131,17 +123,16 @@ public class DistributedPentomino extends Configured implements Tool {
    * @param pent the puzzle 
    * @param depth the depth to explore when generating prefixes
    */
-  private static long createInputDirectory(FileSystem fs, 
+  private static void createInputDirectory(FileSystem fs, 
                                            Path dir,
                                            Pentomino pent,
                                            int depth
                                            ) throws IOException {
     fs.mkdirs(dir);
     List<int[]> splits = pent.getSplits(depth);
-    Path input = new Path(dir, "part1");
-    PrintWriter file = 
-      new PrintWriter(new OutputStreamWriter(new BufferedOutputStream
-                      (fs.create(input), 64*1024), Charsets.UTF_8));
+    PrintStream file = 
+      new PrintStream(new BufferedOutputStream
+                      (fs.create(new Path(dir, "part1")), 64*1024));
     for(int[] prefix: splits) {
       for(int i=0; i < prefix.length; ++i) {
         if (i != 0) {
@@ -152,7 +143,6 @@ public class DistributedPentomino extends Configured implements Tool {
       file.print('\n');
     }
     file.close();
-    return fs.getFileStatus(input).getLen();
   }
   
   /**
@@ -161,68 +151,76 @@ public class DistributedPentomino extends Configured implements Tool {
    * Splits the job into 2000 maps and 1 reduce.
    */
   public static void main(String[] args) throws Exception {
-    int res = ToolRunner.run(new Configuration(), 
-                new DistributedPentomino(), args);
+    int res = ToolRunner.run(new Configuration(), new DistributedPentomino(), args);
     System.exit(res);
   }
 
   public int run(String[] args) throws Exception {
-    Configuration conf = getConf();
+    JobConf conf;
+    int depth = 5;
+    int width = 9;
+    int height = 10;
+    Class<? extends Pentomino> pentClass;
     if (args.length == 0) {
-      System.out.println("Usage: pentomino <output> [-depth #] [-height #] [-width #]");
+      System.out
+          .println("Usage: pentomino <output> [-depth #] [-height #] [-width #]");
       ToolRunner.printGenericCommandUsage(System.out);
-      return 2;
+      return -1;
     }
-    // check for passed parameters, otherwise use defaults
-    int width = conf.getInt(Pentomino.WIDTH, PENT_WIDTH);
-    int height = conf.getInt(Pentomino.HEIGHT, PENT_HEIGHT);
-    int depth = conf.getInt(Pentomino.DEPTH, PENT_DEPTH);
+    
+    conf = new JobConf(getConf());
+
+    // Pick up the parameters, should the user set these
+    width = conf.getInt("pent.width", width);
+    height = conf.getInt("pent.height", height);
+    depth = conf.getInt("pent.depth", depth);
+    pentClass = conf.getClass("pent.class", OneSidedPentomino.class, Pentomino.class);
+    
     for (int i = 0; i < args.length; i++) {
       if (args[i].equalsIgnoreCase("-depth")) {
         depth = Integer.parseInt(args[++i].trim());
       } else if (args[i].equalsIgnoreCase("-height")) {
         height = Integer.parseInt(args[++i].trim());
-      } else if (args[i].equalsIgnoreCase("-width") ) {
+      } else if (args[i].equalsIgnoreCase("-width")) {
         width = Integer.parseInt(args[++i].trim());
       }
     }
-    // now set the values within conf for M/R tasks to read, this
-    // will ensure values are set preventing MAPREDUCE-4678
-    conf.setInt(Pentomino.WIDTH, width);
-    conf.setInt(Pentomino.HEIGHT, height);
-    conf.setInt(Pentomino.DEPTH, depth);
-    Class<? extends Pentomino> pentClass = conf.getClass(Pentomino.CLASS, 
-      OneSidedPentomino.class, Pentomino.class);
-    int numMaps = conf.getInt(MRJobConfig.NUM_MAPS, DEFAULT_MAPS);
+
+    // Set parameters for MR tasks to pick up either which way the user sets
+    // them or not
+    conf.setInt("pent.width", width);
+    conf.setInt("pent.height", height);
+    conf.setInt("pent.depth", depth);
+
     Path output = new Path(args[0]);
     Path input = new Path(output + "_input");
     FileSystem fileSys = FileSystem.get(conf);
     try {
-      Job job = new Job(conf);
-      FileInputFormat.setInputPaths(job, input);
-      FileOutputFormat.setOutputPath(job, output);
-      job.setJarByClass(PentMap.class);
+      FileInputFormat.setInputPaths(conf, input);
+      FileOutputFormat.setOutputPath(conf, output);
+      conf.setJarByClass(PentMap.class);
       
-      job.setJobName("dancingElephant");
+      conf.setJobName("dancingElephant");
       Pentomino pent = ReflectionUtils.newInstance(pentClass, conf);
       pent.initialize(width, height);
-      long inputSize = createInputDirectory(fileSys, input, pent, depth);
-      // for forcing the number of maps
-      FileInputFormat.setMaxInputSplitSize(job, (inputSize/numMaps));
+      createInputDirectory(fileSys, input, pent, depth);
    
       // the keys are the prefix strings
-      job.setOutputKeyClass(Text.class);
+      conf.setOutputKeyClass(Text.class);
       // the values are puzzle solutions
-      job.setOutputValueClass(Text.class);
+      conf.setOutputValueClass(Text.class);
       
-      job.setMapperClass(PentMap.class);        
-      job.setReducerClass(Reducer.class);
+      conf.setMapperClass(PentMap.class);        
+      conf.setReducerClass(IdentityReducer.class);
       
-      job.setNumReduceTasks(1);
+      conf.setNumMapTasks(2000);
+      conf.setNumReduceTasks(1);
       
-      return (job.waitForCompletion(true) ? 0 : 1);
+      JobClient.runJob(conf);
       } finally {
       fileSys.delete(input, true);
     }
+    return 0;
   }
+
 }

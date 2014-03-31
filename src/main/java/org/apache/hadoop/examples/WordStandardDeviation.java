@@ -19,8 +19,10 @@ package org.apache.hadoop.examples;
  */
 
 import java.io.BufferedReader;
+
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.nio.charset.Charset;
 import java.util.StringTokenizer;
 
 import org.apache.hadoop.conf.Configuration;
@@ -36,8 +38,6 @@ import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
-
-import com.google.common.base.Charsets;
 
 public class WordStandardDeviation extends Configured implements Tool {
 
@@ -137,7 +137,11 @@ public class WordStandardDeviation extends Configured implements Tool {
     double stddev = 0;
     BufferedReader br = null;
     try {
-      br = new BufferedReader(new InputStreamReader(fs.open(file), Charsets.UTF_8));
+      
+      /** 
+       * Getting Charset UTF_8 by name might not work.
+       */
+      br = new BufferedReader(new InputStreamReader(fs.open(file), Charset.forName("UTF_8")));
       long count = 0;
       long length = 0;
       long square = 0;

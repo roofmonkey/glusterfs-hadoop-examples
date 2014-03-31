@@ -18,30 +18,34 @@
 
 package org.apache.hadoop.examples;
 
+import java.io.BufferedReader;
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.util.StringTokenizer;
 
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.io.IntWritable;
+import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.WritableComparable;
-import org.apache.hadoop.mapreduce.InputSplit;
-import org.apache.hadoop.mapreduce.Job;
-import org.apache.hadoop.mapreduce.Mapper;
-import org.apache.hadoop.mapreduce.RecordReader;
-import org.apache.hadoop.mapreduce.TaskAttemptContext;
-import org.apache.hadoop.mapreduce.lib.input.CombineFileInputFormat;
-import org.apache.hadoop.mapreduce.lib.input.CombineFileRecordReader;
-import org.apache.hadoop.mapreduce.lib.input.CombineFileSplit;
-import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
-import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
-import org.apache.hadoop.mapreduce.lib.reduce.IntSumReducer;
-import org.apache.hadoop.util.LineReader;
+import org.apache.hadoop.mapred.FileInputFormat;
+import org.apache.hadoop.mapred.FileOutputFormat;
+import org.apache.hadoop.mapred.InputSplit;
+import org.apache.hadoop.mapred.JobClient;
+import org.apache.hadoop.mapred.JobConf;
+import org.apache.hadoop.mapred.MapReduceBase;
+import org.apache.hadoop.mapred.Mapper;
+import org.apache.hadoop.mapred.MultiFileInputFormat;
+import org.apache.hadoop.mapred.MultiFileSplit;
+import org.apache.hadoop.mapred.OutputCollector;
+import org.apache.hadoop.mapred.RecordReader;
+import org.apache.hadoop.mapred.Reporter;
+import org.apache.hadoop.mapred.lib.LongSumReducer;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
 
@@ -95,128 +99,130 @@ public class MultiFileWordCount extends Configured implements Tool {
 
 
   /**
-   * To use {@link CombineFileInputFormat}, one should extend it, to return a 
-   * (custom) {@link RecordReader}. CombineFileInputFormat uses 
-   * {@link CombineFileSplit}s. 
+   * To use {@link MultiFileInputFormat}, one should extend it, to return a 
+   * (custom) {@link RecordReader}. MultiFileInputFormat uses 
+   * {@link MultiFileSplit}s. 
    */
   public static class MyInputFormat 
-    extends CombineFileInputFormat<WordOffset, Text>  {
+    extends MultiFileInputFormat<WordOffset, Text>  {
 
-    public RecordReader<WordOffset,Text> createRecordReader(InputSplit split,
-        TaskAttemptContext context) throws IOException {
-      return new CombineFileRecordReader<WordOffset, Text>(
-        (CombineFileSplit)split, context, CombineFileLineRecordReader.class);
+    @Override
+    public RecordReader<WordOffset,Text> getRecordReader(InputSplit split
+        , JobConf job, Reporter reporter) throws IOException {
+      return new MultiFileLineRecordReader(job, (MultiFileSplit)split);
     }
   }
 
   /**
-   * RecordReader is responsible from extracting records from a chunk
-   * of the CombineFileSplit. 
+   * RecordReader is responsible from extracting records from the InputSplit. 
+   * This record reader accepts a {@link MultiFileSplit}, which encapsulates several 
+   * files, and no file is divided.
    */
-  public static class CombineFileLineRecordReader 
-    extends RecordReader<WordOffset, Text> {
+  public static class MultiFileLineRecordReader 
+    implements RecordReader<WordOffset, Text> {
 
-    private long startOffset; //offset of the chunk;
-    private long end; //end of the chunk;
-    private long pos; // current pos 
+    private MultiFileSplit split;
+    private long offset; //total offset read so far;
+    private long totLength;
     private FileSystem fs;
-    private Path path;
-    private WordOffset key;
-    private Text value;
+    private int count = 0;
+    private Path[] paths;
     
-    private FSDataInputStream fileIn;
-    private LineReader reader;
+    private FSDataInputStream currentStream;
+    private BufferedReader currentReader;
     
-    public CombineFileLineRecordReader(CombineFileSplit split,
-        TaskAttemptContext context, Integer index) throws IOException {
+    public MultiFileLineRecordReader(Configuration conf, MultiFileSplit split)
+      throws IOException {
       
-      this.path = split.getPath(index);
-      fs = this.path.getFileSystem(context.getConfiguration());
-      this.startOffset = split.getOffset(index);
-      this.end = startOffset + split.getLength(index);
-      boolean skipFirstLine = false;
+      this.split = split;
+      fs = FileSystem.get(conf);
+      this.paths = split.getPaths();
+      this.totLength = split.getLength();
+      this.offset = 0;
       
-      //open the file
-      fileIn = fs.open(path);
-      if (startOffset != 0) {
-        skipFirstLine = true;
-        --startOffset;
-        fileIn.seek(startOffset);
-      }
-      reader = new LineReader(fileIn);
-      if (skipFirstLine) {  // skip first line and re-establish "startOffset".
-        startOffset += reader.readLine(new Text(), 0,
-                    (int)Math.min((long)Integer.MAX_VALUE, end - startOffset));
-      }
-      this.pos = startOffset;
-    }
-
-    public void initialize(InputSplit split, TaskAttemptContext context)
-        throws IOException, InterruptedException {
+      //open the first file
+      Path file = paths[count];
+      currentStream = fs.open(file);
+      currentReader = new BufferedReader(new InputStreamReader(currentStream));
     }
 
     public void close() throws IOException { }
 
+    public long getPos() throws IOException {
+      long currentOffset = currentStream == null ? 0 : currentStream.getPos();
+      return offset + currentOffset;
+    }
+
     public float getProgress() throws IOException {
-      if (startOffset == end) {
-        return 0.0f;
-      } else {
-        return Math.min(1.0f, (pos - startOffset) / (float)(end - startOffset));
-      }
+      return ((float)getPos()) / totLength;
     }
 
-    public boolean nextKeyValue() throws IOException {
-      if (key == null) {
-        key = new WordOffset();
-        key.fileName = path.getName();
-      }
-      key.offset = pos;
-      if (value == null) {
-        value = new Text();
-      }
-      int newSize = 0;
-      if (pos < end) {
-        newSize = reader.readLine(value);
-        pos += newSize;
-      }
-      if (newSize == 0) {
-        key = null;
-        value = null;
+    public boolean next(WordOffset key, Text value) throws IOException {
+      if(count >= split.getNumPaths())
         return false;
-      } else {
-        return true;
-      }
+
+      /* Read from file, fill in key and value, if we reach the end of file,
+       * then open the next file and continue from there until all files are
+       * consumed.  
+       */
+      String line;
+      do {
+        line = currentReader.readLine();
+        if(line == null) {
+          //close the file
+          currentReader.close();
+          offset += split.getLength(count);
+          
+          if(++count >= split.getNumPaths()) //if we are done
+            return false;
+          
+          //open a new file
+          Path file = paths[count];
+          currentStream = fs.open(file);
+          currentReader=new BufferedReader(new InputStreamReader(currentStream));
+          key.fileName = file.getName();
+        }
+      } while(line == null);
+      //update the key and value
+      key.offset = currentStream.getPos();
+      value.set(line);
+      
+      return true;
     }
 
-    public WordOffset getCurrentKey() 
-        throws IOException, InterruptedException {
-      return key;
+    public WordOffset createKey() {
+      WordOffset wo = new WordOffset();
+      wo.fileName = paths[0].toString(); //set as the first file
+      return wo;
     }
 
-    public Text getCurrentValue() throws IOException, InterruptedException {
-      return value;
+    public Text createValue() {
+      return new Text();
     }
   }
 
   /**
    * This Mapper is similar to the one in {@link WordCount.MapClass}.
    */
-  public static class MapClass extends 
-      Mapper<WordOffset, Text, Text, IntWritable> {
-    private final static IntWritable one = new IntWritable(1);
+  public static class MapClass extends MapReduceBase
+    implements Mapper<WordOffset, Text, Text, LongWritable> {
+
+    private final static LongWritable one = new LongWritable(1);
     private Text word = new Text();
     
-    public void map(WordOffset key, Text value, Context context)
-        throws IOException, InterruptedException {
+    public void map(WordOffset key, Text value,
+        OutputCollector<Text, LongWritable> output, Reporter reporter)
+        throws IOException {
       
       String line = value.toString();
       StringTokenizer itr = new StringTokenizer(line);
       while (itr.hasMoreTokens()) {
         word.set(itr.nextToken());
-        context.write(word, one);
+        output.collect(word, one);
       }
     }
   }
+  
   
   private void printUsage() {
     System.out.println("Usage : multifilewc <input_dir> <output>" );
@@ -226,31 +232,32 @@ public class MultiFileWordCount extends Configured implements Tool {
 
     if(args.length < 2) {
       printUsage();
-      return 2;
+      return 1;
     }
 
-    Job job = new Job(getConf());
+    JobConf job = new JobConf(getConf(), MultiFileWordCount.class);
     job.setJobName("MultiFileWordCount");
-    job.setJarByClass(MultiFileWordCount.class);
 
     //set the InputFormat of the job to our InputFormat
-    job.setInputFormatClass(MyInputFormat.class);
+    job.setInputFormat(MyInputFormat.class);
     
     // the keys are words (strings)
     job.setOutputKeyClass(Text.class);
     // the values are counts (ints)
-    job.setOutputValueClass(IntWritable.class);
+    job.setOutputValueClass(LongWritable.class);
 
     //use the defined mapper
     job.setMapperClass(MapClass.class);
     //use the WordCount Reducer
-    job.setCombinerClass(IntSumReducer.class);
-    job.setReducerClass(IntSumReducer.class);
+    job.setCombinerClass(LongSumReducer.class);
+    job.setReducerClass(LongSumReducer.class);
 
     FileInputFormat.addInputPaths(job, args[0]);
     FileOutputFormat.setOutputPath(job, new Path(args[1]));
 
-    return job.waitForCompletion(true) ? 0 : 1;
+    JobClient.runJob(job);
+    
+    return 0;
   }
 
   public static void main(String[] args) throws Exception {

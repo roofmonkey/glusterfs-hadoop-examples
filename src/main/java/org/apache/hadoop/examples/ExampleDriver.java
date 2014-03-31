@@ -16,15 +16,14 @@
  * limitations under the License.
  */
 
-package org.apache.hadoop.examples.glusterfs;
+package org.apache.hadoop.examples;
 
 import org.apache.hadoop.examples.dancing.DistributedPentomino;
-
 import org.apache.hadoop.examples.dancing.Sudoku;
-import org.apache.hadoop.examples.glusterfs.WordCount;
 import org.apache.hadoop.examples.terasort.TeraGen;
 import org.apache.hadoop.examples.terasort.TeraSort;
 import org.apache.hadoop.examples.terasort.TeraValidate;
+import org.apache.hadoop.util.ProgramDriver;
 
 /**
  * A description of an example program based on its class and a 
@@ -33,18 +32,11 @@ import org.apache.hadoop.examples.terasort.TeraValidate;
 public class ExampleDriver {
   
   public static void main(String argv[]){
-      int exitCode = 0;
-   ProgramDriver pgd = new ProgramDriver();
+    int exitCode = -1;
+    ProgramDriver pgd = new ProgramDriver();
     try {
       pgd.addClass("wordcount", WordCount.class, 
-                   "A map/reduce program that counts the words in the input files. multiple input paths supported...");
-      /*
-      pgd.addClass("wordmean", WordMean.class,
-                   "A map/reduce program that counts the average length of the words in the input files.");
-      pgd.addClass("wordmedian", WordMedian.class,
-                   "A map/reduce program that counts the median length of the words in the input files.");
-      pgd.addClass("wordstandarddeviation", WordStandardDeviation.class,
-                   "A map/reduce program that counts the standard deviation of the length of the words in the input files.");
+                   "A map/reduce program that counts the words in the input files.");
       pgd.addClass("aggregatewordcount", AggregateWordCount.class, 
                    "An Aggregate based map/reduce program that counts the words in the input files.");
       pgd.addClass("aggregatewordhist", AggregateWordHistogram.class, 
@@ -56,28 +48,26 @@ public class ExampleDriver {
       pgd.addClass("randomtextwriter", RandomTextWriter.class, 
       "A map/reduce program that writes 10GB of random textual data per node.");
       pgd.addClass("sort", Sort.class, "A map/reduce program that sorts the data written by the random writer.");
-
-      pgd.addClass("pi", QuasiMonteCarlo.class, QuasiMonteCarlo.DESCRIPTION);
-      pgd.addClass("bbp", BaileyBorweinPlouffe.class, BaileyBorweinPlouffe.DESCRIPTION);
-      pgd.addClass("distbbp", DistBbp.class, DistBbp.DESCRIPTION);
-
+      pgd.addClass("pi", PiEstimator.class, "A map/reduce program that estimates Pi using monte-carlo method.");
       pgd.addClass("pentomino", DistributedPentomino.class,
       "A map/reduce tile laying program to find solutions to pentomino problems.");
       pgd.addClass("secondarysort", SecondarySort.class,
                    "An example defining a secondary sort to the reduce.");
       pgd.addClass("sudoku", Sudoku.class, "A sudoku solver.");
+      pgd.addClass("sleep", SleepJob.class, "A job that sleeps at each map and reduce task.");
       pgd.addClass("join", Join.class, "A job that effects a join over sorted, equally partitioned datasets");
       pgd.addClass("multifilewc", MultiFileWordCount.class, "A job that counts words from several files.");
       pgd.addClass("dbcount", DBCountPageView.class, "An example job that count the pageview counts from a database.");
       pgd.addClass("teragen", TeraGen.class, "Generate data for the terasort");
       pgd.addClass("terasort", TeraSort.class, "Run the terasort");
       pgd.addClass("teravalidate", TeraValidate.class, "Checking results of terasort");
-      */
       pgd.driver(argv);
+      
+      // Success
+      exitCode = 0;
     }
     catch(Throwable e){
       e.printStackTrace();
-      exitCode=1;
     }
     
     System.exit(exitCode);

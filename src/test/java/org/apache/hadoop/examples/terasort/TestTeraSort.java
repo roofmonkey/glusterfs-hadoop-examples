@@ -25,7 +25,7 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.HadoopTestCase;
 import org.apache.hadoop.util.ToolRunner;
 import org.junit.Ignore;
-@Ignore
+import org.junit.Test;
 public class TestTeraSort extends HadoopTestCase {
   
   public TestTeraSort()
@@ -73,14 +73,18 @@ public class TestTeraSort extends HadoopTestCase {
     // Run Tera-Validator
     assertEquals(ToolRunner.run(job, new TeraValidate(), svArgs), 0);
   }
-  
+
+  @Test
   public void testTeraSort() throws Exception {
     // Run TeraGen to generate input for 'terasort'
+      System.out.println("Running teragen");
     runTeraGen(createJobConf(), SORT_INPUT_PATH);
 
+    System.out.println("Running terasort");
     // Run terasort
     runTeraSort(createJobConf(), SORT_INPUT_PATH, SORT_OUTPUT_PATH);
 
+    System.out.println("Running val");
     // Run tera-validator to check if sort worked correctly
     runTeraValidator(createJobConf(), SORT_OUTPUT_PATH,
       TERA_OUTPUT_PATH);
