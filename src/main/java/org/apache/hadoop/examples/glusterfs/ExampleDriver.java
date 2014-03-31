@@ -69,10 +69,10 @@ public class ExampleDriver {
       pgd.addClass("join", Join.class, "A job that effects a join over sorted, equally partitioned datasets");
       pgd.addClass("multifilewc", MultiFileWordCount.class, "A job that counts words from several files.");
       pgd.addClass("dbcount", DBCountPageView.class, "An example job that count the pageview counts from a database.");
+       */
       pgd.addClass("teragen", TeraGen.class, "Generate data for the terasort");
       pgd.addClass("terasort", TeraSort.class, "Run the terasort");
       pgd.addClass("teravalidate", TeraValidate.class, "Checking results of terasort");
-      */
       pgd.driver(argv);
     }
     catch(Throwable e){

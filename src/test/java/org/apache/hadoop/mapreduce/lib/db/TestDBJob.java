@@ -23,8 +23,13 @@ import java.io.IOException;
 import org.apache.hadoop.examples.DBCountPageView;
 import org.apache.hadoop.mapred.HadoopTestCase;
 import org.apache.hadoop.util.ToolRunner;
+import org.junit.Ignore;
 
-
+/**
+ * We dont support any jobs in this lib that use hsqldb 
+ * at the moment.
+ */
+@Ignore
 public class TestDBJob extends HadoopTestCase {
 
   public TestDBJob() throws IOException {

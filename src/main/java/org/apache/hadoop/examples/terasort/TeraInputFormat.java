@@ -148,7 +148,7 @@ public class TeraInputFormat extends FileInputFormat<Text,Text> {
     private LineRecordReader in;
     private LongWritable junk = new LongWritable();
     private Text line = new Text();
-    private static int KEY_LENGTH = 10;
+    private static int KEY_LENGTH = 34;
 
     public TeraRecordReader(Configuration job, 
                             FileSplit split) throws IOException {

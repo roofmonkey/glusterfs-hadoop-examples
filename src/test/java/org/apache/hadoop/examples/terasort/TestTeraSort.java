@@ -26,6 +26,7 @@ import org.apache.hadoop.mapred.HadoopTestCase;
 import org.apache.hadoop.util.ToolRunner;
 import org.junit.Ignore;
 import org.junit.Test;
+@Ignore
 public class TestTeraSort extends HadoopTestCase {
   
   public TestTeraSort()
@@ -74,7 +75,6 @@ public class TestTeraSort extends HadoopTestCase {
     assertEquals(ToolRunner.run(job, new TeraValidate(), svArgs), 0);
   }
 
-  @Test
   public void testTeraSort() throws Exception {
     // Run TeraGen to generate input for 'terasort'
       System.out.println("Running teragen");
