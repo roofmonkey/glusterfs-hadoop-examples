@@ -245,12 +245,17 @@ public class QuasiMonteCarlo extends Configured implements Tool {
    *
    * @return the estimated value of Pi
    */
-  public static BigDecimal estimatePi(int numMaps, long numPoints,
+  public static BigDecimal estimatePi(String name, int numMaps, long numPoints,
       Path tmpDir, Configuration conf
       ) throws IOException, ClassNotFoundException, InterruptedException {
     Job job = new Job(conf);
     //setup job conf
-    job.setJobName(QuasiMonteCarlo.class.getSimpleName());
+    /**
+    * Allow for naming this job, good way to test out 
+    * MAPREDUCE-5092.
+    **/
+    job.setJobName(name);
+    
     job.setJarByClass(QuasiMonteCarlo.class);
 
     job.setInputFormatClass(SequenceFileInputFormat.class);
@@ -336,6 +341,16 @@ public class QuasiMonteCarlo extends Configured implements Tool {
    * @return a non-zero if there is an error.  Otherwise, return 0.  
    */
   public int run(String[] args) throws Exception {
+    
+    /**
+     * Optional third argument for allowing named job.  
+     */
+    String name="QuasiMonteCarlo";
+      if(args.length==3) {
+        name=args[2];
+    }
+    args=new String[] {args[0],args[1]};
+
     if (args.length != 2) {
       System.err.println("Usage: "+getClass().getName()+" <nMaps> <nSamples>");
       ToolRunner.printGenericCommandUsage(System.err);
@@ -352,7 +367,7 @@ public class QuasiMonteCarlo extends Configured implements Tool {
     System.out.println("Samples per Map = " + nSamples);
         
     System.out.println("Estimated value of Pi is "
-        + estimatePi(nMaps, nSamples, tmpDir, getConf()));
+        + estimatePi(name, nMaps, nSamples, tmpDir, getConf()));
     return 0;
   }
 
