@@ -363,11 +363,12 @@ public class QuasiMonteCarlo extends Configured implements Tool {
     String name="QuasiMonteCarlo";
       if(args.length==3) {
         name=args[2];
+        System.out.println("Extra arg: using job name = " + name);
+        args=new String[] {args[0],args[1]};
     }
-    args=new String[] {args[0],args[1]};
 
     if (args.length != 2) {
-      System.err.println("Usage: "+getClass().getName()+" <nMaps> <nSamples>");
+      System.err.println("Calculate pi Usage: "+getClass().getName()+" <nMaps> <nSamples>");
       ToolRunner.printGenericCommandUsage(System.err);
       return 2;
     }
