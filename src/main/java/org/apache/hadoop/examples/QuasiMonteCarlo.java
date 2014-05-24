@@ -326,10 +326,20 @@ public class QuasiMonteCarlo extends Configured implements Tool {
       //compute estimated value
       final BigDecimal numTotal
           = BigDecimal.valueOf(numMaps).multiply(BigDecimal.valueOf(numPoints));
+
+      try {
+          System.out.println(job.getCounters());
+      }
+      catch(Throwable t) {
+          t.printStackTrace();
+          System.err.println("Something is wrong : After job, we Couldnt get counters.");
+      }
+      
       return BigDecimal.valueOf(4).setScale(20)
           .multiply(BigDecimal.valueOf(numInside.get()))
           .divide(numTotal, RoundingMode.HALF_UP);
-    } finally {
+    } 
+    finally {
       fs.delete(tmpDir, true);
     }
   }
