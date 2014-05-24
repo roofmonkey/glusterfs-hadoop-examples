@@ -18,9 +18,23 @@
 
 package org.apache.hadoop.examples.glusterfs;
 
+import org.apache.hadoop.examples.AggregateWordCount;
+import org.apache.hadoop.examples.AggregateWordHistogram;
+import org.apache.hadoop.examples.BaileyBorweinPlouffe;
+import org.apache.hadoop.examples.DBCountPageView;
+import org.apache.hadoop.examples.Grep;
+import org.apache.hadoop.examples.Join;
+import org.apache.hadoop.examples.MultiFileWordCount;
+import org.apache.hadoop.examples.QuasiMonteCarlo;
+import org.apache.hadoop.examples.RandomTextWriter;
+import org.apache.hadoop.examples.RandomWriter;
+import org.apache.hadoop.examples.SecondarySort;
+import org.apache.hadoop.examples.Sort;
+import org.apache.hadoop.examples.WordMean;
+import org.apache.hadoop.examples.WordMedian;
+import org.apache.hadoop.examples.WordStandardDeviation;
 import org.apache.hadoop.examples.dancing.DistributedPentomino;
 import org.apache.hadoop.examples.dancing.Sudoku;
-import org.apache.hadoop.examples.glusterfs.WordCount;
 import org.apache.hadoop.examples.pi.DistBbp;
 import org.apache.hadoop.examples.terasort.TeraGen;
 import org.apache.hadoop.examples.terasort.TeraSort;
@@ -39,7 +53,7 @@ public class ExampleDriver {
     try {
       pgd.addClass("wordcount", WordCount.class, 
                    "A map/reduce program that counts the words in the input files. multiple input paths supported...");
-      /*
+      
       pgd.addClass("wordmean", WordMean.class,
                    "A map/reduce program that counts the average length of the words in the input files.");
       pgd.addClass("wordmedian", WordMedian.class,
@@ -58,7 +72,7 @@ public class ExampleDriver {
       "A map/reduce program that writes 10GB of random textual data per node.");
       pgd.addClass("sort", Sort.class, "A map/reduce program that sorts the data written by the random writer.");
 
-      pgd.addClass("pi", QuasiMonteCarlo.class, QuasiMonteCarlo.DESCRIPTION);
+      pgd.addClass("pi", QuasiMonteCarlo.class, "Modified pi that accepts a job name, as well as standard <int> <int> args.");
       pgd.addClass("bbp", BaileyBorweinPlouffe.class, BaileyBorweinPlouffe.DESCRIPTION);
       pgd.addClass("distbbp", DistBbp.class, DistBbp.DESCRIPTION);
 
@@ -73,7 +87,6 @@ public class ExampleDriver {
       pgd.addClass("teragen", TeraGen.class, "Generate data for the terasort");
       pgd.addClass("terasort", TeraSort.class, "Run the terasort");
       pgd.addClass("teravalidate", TeraValidate.class, "Checking results of terasort");
-      */
       exitCode = pgd.run(argv);
     }
     catch(Throwable e){
