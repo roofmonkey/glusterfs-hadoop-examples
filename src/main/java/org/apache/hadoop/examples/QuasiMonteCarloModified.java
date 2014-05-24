@@ -74,11 +74,11 @@ import org.apache.hadoop.util.ToolRunner;
  * and the area of unit square is 1.
  * Finally, the estimated value of Pi is 4(numInside/numTotal).  
  */
-public class QuasiMonteCarlo extends Configured implements Tool {
+public class QuasiMonteCarloModified extends Configured implements Tool {
   static final String DESCRIPTION
       = "A map/reduce program that estimates Pi using a quasi-Monte Carlo method.";
   /** tmp directory for input/output */
-  static private final String TMP_DIR_PREFIX = QuasiMonteCarlo.class.getSimpleName();
+  static private final String TMP_DIR_PREFIX = QuasiMonteCarloModified.class.getSimpleName();
   
   /** 2-dimensional Halton sequence {H(i)},
    * where H(i) is a 2-dimensional point and i >= 1 is the index.
@@ -256,7 +256,7 @@ public class QuasiMonteCarlo extends Configured implements Tool {
     **/
     job.setJobName(name);
     
-    job.setJarByClass(QuasiMonteCarlo.class);
+    job.setJarByClass(QuasiMonteCarloModified.class);
 
     job.setInputFormatClass(SequenceFileInputFormat.class);
 
@@ -391,6 +391,6 @@ public class QuasiMonteCarlo extends Configured implements Tool {
    * main method for running it as a stand alone command. 
    */
   public static void main(String[] argv) throws Exception {
-    System.exit(ToolRunner.run(null, new QuasiMonteCarlo(), argv));
+    System.exit(ToolRunner.run(null, new QuasiMonteCarloModified(), argv));
   }
 }

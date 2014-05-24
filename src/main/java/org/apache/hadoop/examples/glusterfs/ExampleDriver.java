@@ -25,7 +25,7 @@ import org.apache.hadoop.examples.DBCountPageView;
 import org.apache.hadoop.examples.Grep;
 import org.apache.hadoop.examples.Join;
 import org.apache.hadoop.examples.MultiFileWordCount;
-import org.apache.hadoop.examples.QuasiMonteCarlo;
+import org.apache.hadoop.examples.QuasiMonteCarloModified;
 import org.apache.hadoop.examples.RandomTextWriter;
 import org.apache.hadoop.examples.RandomWriter;
 import org.apache.hadoop.examples.SecondarySort;
@@ -72,7 +72,7 @@ public class ExampleDriver {
       "A map/reduce program that writes 10GB of random textual data per node.");
       pgd.addClass("sort", Sort.class, "A map/reduce program that sorts the data written by the random writer.");
 
-      pgd.addClass("pi", QuasiMonteCarlo.class, "Modified pi that accepts a job name, as well as standard <int> <int> args.");
+      pgd.addClass("pi", QuasiMonteCarloModified.class, "Modified pi that accepts a job name, as well as standard <int> <int> args.");
       pgd.addClass("bbp", BaileyBorweinPlouffe.class, BaileyBorweinPlouffe.DESCRIPTION);
       pgd.addClass("distbbp", DistBbp.class, DistBbp.DESCRIPTION);
 
