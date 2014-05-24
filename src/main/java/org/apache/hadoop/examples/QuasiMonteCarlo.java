@@ -327,8 +327,13 @@ public class QuasiMonteCarlo extends Configured implements Tool {
       final BigDecimal numTotal
           = BigDecimal.valueOf(numMaps).multiply(BigDecimal.valueOf(numPoints));
 
+      /**
+       * Test that after job runs, we can get counters.
+       * This is a good test of the job history server.
+       */
       try {
-          System.out.println(job.getCounters());
+          System.out.println("Job completed");
+          System.out.println("Counters for this job -> " + job.getCounters());
       }
       catch(Throwable t) {
           t.printStackTrace();
